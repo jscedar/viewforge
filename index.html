@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ViewForge — Data View Builder</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">ViewForge <span>/ Data View Builder</span></div>
+  <div class="header-actions">
+    <button class="btn" onclick="openSamplesModal()">⊞ Datasets</button>
+    <button class="btn" onclick="openViewsModal()">⊡ Sample Views</button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
+    <div class="view-toggle">
+      <button class="vtog active" id="vtog-pipeline" onclick="switchCanvasView('pipeline')">⬡ Pipeline</button>
+      <button class="vtog" id="vtog-builder" onclick="switchCanvasView('builder')">{ } Builder</button>
+    </div>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
+    <button class="btn" onclick="clearCanvas()">⟳ Clear</button>
+    <button class="btn" onclick="showDSL()">{ } DSL</button>
+    <button class="btn" onclick="showCodeGen()">⬡ Code</button>
+    <button class="btn primary" onclick="runPipeline()">▶ Run</button>
+  </div>
+</header>
+
+<div class="app-body">
+
+  <!-- LEFT: Data Sources -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <span class="panel-title">Sources</span>
+      <button class="icon-btn" onclick="openAddSource()" title="Add Source">+</button>
+    </div>
+    <div class="sources-list" id="sources-list"></div>
+    <div class="add-source-area">
+      <button class="add-source-btn" onclick="openAddSource()">+ Add JSON Source</button>
+    </div>
+  </div>
+
+  <!-- CENTER: Canvas Area (Pipeline + Builder) -->
+  <div class="canvas-area">
+
+    <!-- ── PIPELINE VIEW ── -->
+    <div id="canvas-view">
+      <div class="canvas-toolbar">
+        <span style="font-size:10px;color:var(--text3);margin-right:4px;">ADD OP:</span>
+        <button class="op-btn op-join" onclick="addNode('join')"><span class="op-icon">⟗</span> Join</button>
+        <button class="op-btn op-filter" onclick="addNode('filter')"><span class="op-icon">⊕</span> Filter</button>
+        <button class="op-btn op-map" onclick="addNode('map')"><span class="op-icon">→</span> Map</button>
+        <button class="op-btn op-agg" onclick="addNode('aggregate')"><span class="op-icon">Σ</span> Aggregate</button>
+        <button class="op-btn op-group" onclick="addNode('groupby')"><span class="op-icon">≡</span> Group By</button>
+        <button class="op-btn op-sort" onclick="addNode('sort')"><span class="op-icon">↕</span> Sort</button>
+        <div class="toolbar-sep"></div>
+        <button class="op-btn op-out" onclick="addNode('output')"><span class="op-icon">⬡</span> Output</button>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="btn" onclick="zoomReset()" style="font-size:10px;padding:3px 8px;">⊡ Reset View</button>
+        </div>
+      </div>
+      <div class="canvas-wrap" id="canvas-wrap"
+        ondragover="canvasDragOver(event)"
+        ondrop="canvasDrop(event)">
+        <svg id="canvas-svg"></svg>
+        <div id="canvas-nodes"></div>
+        <div class="empty-canvas" id="empty-hint">
+          <h2>Build Your View</h2>
+          <p>Drag fields from sources →<br>Add operators from toolbar →<br>Connect nodes to transform data</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BUILDER VIEW ── -->
+    <div id="builder-view">
+      <div class="builder-toolbar">
+        <span style="font-size:10px;color:var(--text3);margin-right:6px;">ADD FIELD:</span>
+        <button class="op-btn" onclick="builderAdd('field','str')"><span class="op-icon" style="color:#065f46">𝑓</span> String</button>
+        <button class="op-btn" onclick="builderAdd('field','num')"><span class="op-icon" style="color:#1e40af">#</span> Number</button>
+        <button class="op-btn" onclick="builderAdd('field','bool')"><span class="op-icon" style="color:#5b21b6">✓</span> Boolean</button>
+        <button class="op-btn" onclick="builderAdd('obj')"><span class="op-icon" style="color:#92400e">{}</span> Object</button>
+        <button class="op-btn" onclick="builderAdd('arr')"><span class="op-icon" style="color:#0e7490">[]</span> Array</button>
+        <div class="toolbar-sep"></div>
+        <button class="op-btn op-agg" onclick="builderAdd('agg')"><span class="op-icon">Σ</span> Aggregate</button>
+        <button class="op-btn op-filter" onclick="builderAdd('expr')"><span class="op-icon">λ</span> Expression</button>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+          <span style="font-size:10px;color:var(--text3);">Output:</span>
+          <input id="builder-output-name" class="jb-output-name" placeholder="view_name" value="my_view" style="width:120px;" oninput="syncBuilderToState()">
+          <button class="btn" onclick="importFromPipeline()" style="font-size:10px;padding:3px 8px;">↓ Import Shape</button>
+        </div>
+      </div>
+      <div class="builder-wrap" id="builder-wrap"
+        ondragover="builderDragOver(event)"
+        ondrop="builderDrop(event)">
+        <div class="jb-root" id="jb-root"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Output / DSL / Code -->
+  <div class="right-panel">
+    <div class="right-tabs">
+      <div class="rtab active" onclick="switchRTab('dsl',this)">DSL</div>
+      <div class="rtab" onclick="switchRTab('preview',this)">Preview</div>
+      <div class="rtab" onclick="switchRTab('codegen',this)">Code Gen</div>
+    </div>
+    <div class="right-content">
+      <div class="rtab-pane active" id="pane-dsl">
+        <div class="dsl-area">
+          <div class="section-label">Pipeline DSL (JSON)</div>
+          <div class="code-block" id="dsl-output">// Build your pipeline to see the DSL</div>
+          <div style="margin-top:10px;">
+            <button class="btn" onclick="copyDSL()" style="font-size:10px;">⧉ Copy DSL</button>
+          </div>
+        </div>
+      </div>
+      <div class="rtab-pane" id="pane-preview">
+        <div class="preview-area" id="preview-content">
+          <div class="preview-empty">Run the pipeline to see results</div>
+        </div>
+      </div>
+      <div class="rtab-pane" id="pane-codegen">
+        <div class="codegen-area">
+          <div class="section-label">Generate Code</div>
+          <div class="codegen-lang-tabs">
+            <div class="lang-tab active" onclick="switchLang('js',this)">JavaScript</div>
+            <div class="lang-tab" onclick="switchLang('kotlin',this)">Kotlin</div>
+            <div class="lang-tab" onclick="switchLang('python',this)">Python</div>
+            <div class="lang-tab" onclick="switchLang('sql',this)">SQL</div>
+          </div>
+          <div class="code-block" id="codegen-output" style="max-height:none;margin-top:10px;">// Select a language to generate code</div>
+          <button class="btn" onclick="copyCode()" style="margin-top:10px;font-size:10px;">⧉ Copy Code</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span><span class="status-dot"></span>Ready</span>
+  <span id="node-count">0 nodes</span>
+  <span id="edge-count">0 connections</span>
+  <span style="margin-left:auto;" id="status-msg">Drag sources onto canvas or add operators</span>
+</div>
+
+<!-- Add Source Modal -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <h3>Add Data Source</h3>
+    <label>Source Name</label>
+    <input type="text" id="src-name" placeholder="e.g. orders, users, products" />
+    <label>Paste JSON Data or Schema</label>
+    <textarea id="src-json" placeholder='Paste JSON array or nested object, e.g.:&#10;{"workers":[{"associateOID":"123","person":{"legalName":{"givenName":"Alice"}}}]}&#10;&#10;Arrays are auto-detected and unwrapped.'></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn primary" onclick="addSourceFromModal()">Add Source</button>
+    </div>
+  </div>
+</div>
+
+<!-- Datasets Modal -->
+<div class="modal-overlay" id="modal-samples">
+  <div class="modal modal-wide" style="min-width:700px;max-width:900px;">
+    <h3>Load Dataset Set</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;">Each set contains matching <strong>orders</strong>, <strong>customers</strong>, and <strong>workers</strong> with consistent IDs — so joins and reports will produce real results.</p>
+    <div id="samples-grid" style="display:flex;flex-direction:column;gap:10px;max-height:440px;overflow-y:auto;padding-right:4px;"></div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn" onclick="closeModal('modal-samples')">Cancel</button>
+      <button class="btn primary" id="load-dataset-btn" onclick="loadSelectedDataset()" disabled>Load All 3 Sources</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sample Views Modal -->
+<div class="modal-overlay" id="modal-views">
+  <div class="modal modal-wide" style="min-width:580px;">
+    <h3>Sample Views</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;">Pre-built data view pipelines. Loading a view will clear the canvas and set up the full pipeline ready to run.</p>
+    <div id="views-list"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-views')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- DSL Modal -->
+<div class="modal-overlay" id="modal-dsl">
+  <div class="modal" style="min-width:580px;">
+    <h3>Pipeline DSL</h3>
+    <div class="code-block" id="modal-dsl-content" style="max-height:400px;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-dsl')">Close</button>
+      <button class="btn primary" onclick="copyDSL()">Copy DSL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Path picker popup -->
+<div class="path-picker" id="path-picker">
+  <input class="pp-search" id="pp-search" placeholder="Search fields..." oninput="filterPathPicker(this.value)">
+  <div id="pp-items"></div>
+</div>
+
+<!-- Type menu popup -->
+<div class="type-menu" id="type-menu">
+  <div class="type-item" onclick="setNodeType('str')"><span class="field-type-badge ft-str">str</span>String</div>
+  <div class="type-item" onclick="setNodeType('num')"><span class="field-type-badge ft-num">num</span>Number</div>
+  <div class="type-item" onclick="setNodeType('bool')"><span class="field-type-badge ft-bool">bool</span>Boolean</div>
+  <div class="type-item" onclick="setNodeType('date')"><span class="field-type-badge ft-date">date</span>Date</div>
+  <div class="type-item" onclick="setNodeType('obj')"><span class="field-type-badge ft-obj">{}</span>Object</div>
+  <div class="type-item" onclick="setNodeType('arr')"><span class="field-type-badge ft-arr">[]</span>Array</div>
+  <div class="type-item" onclick="setNodeType('expr')"><span style="background:#fce7f3;color:#9d174d" class="field-type-badge">λ</span>Expression</div>
+  <div class="type-item" onclick="setNodeType('agg')"><span style="background:#fff7ed;color:#c2410c" class="field-type-badge">Σ</span>Aggregate</div>
+</div>
+
+<div class="drag-ghost" id="drag-ghost"></div>
+
+  <!-- Data -->
+  <script src="data/sample-data.js"></script>
+
+  <!-- Core modules (order matters) -->
+  <script src="src/pipeline.js"></script>
+  <script src="src/dsl.js"></script>
+  <script src="src/execute.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/builder.js"></script>
+
+  <!-- Boot -->
+  <script src="src/boot.js"></script>
+
+</body>
+</html>

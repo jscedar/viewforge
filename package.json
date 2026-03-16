@@ -1,0 +1,25 @@
+{
+  "name": "viewforge",
+  "version": "0.1.0",
+  "description": "Visual JSON data view builder — pipeline canvas + hierarchical block editor with DSL and code generation",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve . --port 3000",
+    "dev": "npx live-server --port=3000 --open=index.html",
+    "lint": "echo 'No build step — pure static app'"
+  },
+  "keywords": [
+    "data-pipeline",
+    "json-transform",
+    "etl",
+    "visual-builder",
+    "dsl",
+    "no-code"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "serve": "^14.0.0"
+  }
+}
